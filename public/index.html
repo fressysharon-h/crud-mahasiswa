@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Mahasiswa</title>
+<style>
+  :root {
+    --bg: #f3f5f2; --surface: #ffffff; --ink: #1d2a24; --muted: #64736b;
+    --line: #d9dfda; --accent: #1f6f5c; --accent-ink: #ffffff; --danger: #b3382c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif; line-height: 1.5; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  .panel h2 { font-size: 1.05rem; margin: 0 0 14px; }
+  form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 16px; }
+  label { display: flex; flex-direction: column; font-size: .875rem; gap: 4px; }
+  input { padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+  input:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .actions { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 9px 16px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+  button.small { padding: 5px 10px; font-size: .85rem; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .toolbar input { width: 260px; max-width: 100%; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: .82rem; }
+  td.aksi { display: flex; gap: 6px; }
+  .kosong { text-align: center; color: var(--muted); padding: 28px 0; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff;
+    padding: 10px 16px; border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  #toast.show { opacity: 1; }
+  #toast.error { background: var(--danger); }
+  @media (max-width: 600px) { form { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Data Mahasiswa</h1>
+  <p class="sub">Tambah, ubah, cari, dan hapus data mahasiswa.</p>
+
+  <section class="panel">
+    <h2 id="judul-form">Tambah mahasiswa</h2>
+    <form id="form">
+      <input type="hidden" id="id">
+      <label>NIM <input id="nim" required></label>
+      <label>Nama lengkap <input id="nama" required></label>
+      <label>Jurusan <input id="jurusan" required></label>
+      <label>Email <input id="email" type="email"></label>
+      <div class="actions">
+        <button type="submit" class="primary" id="btn-simpan">Simpan</button>
+        <button type="button" id="btn-batal" hidden>Batal</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <h2 style="margin:0">Daftar mahasiswa</h2>
+      <input id="cari" type="search" placeholder="Cari NIM, nama, atau jurusan">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>NIM</th><th>Nama</th><th>Jurusan</th><th>Email</th><th>Aksi</th></tr></thead>
+        <tbody id="isi"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<div id="toast" role="status"></div>
+
+<script>
+const API = '/api/mahasiswa';
+const $ = (id) => document.getElementById(id);
+const form = $('form');
+
+function toast(teks, error = false) {
+  const t = $('toast');
+  t.textContent = teks;
+  t.className = 'show' + (error ? ' error' : '');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => (t.className = ''), 2500);
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function muat() {
+  const res = await fetch(API + '?q=' + encodeURIComponent($('cari').value));
+  const data = await res.json();
+  $('isi').innerHTML = data.length
+    ? data.map((m) => `
+      <tr>
+        <td>${esc(m.nim)}</td><td>${esc(m.nama)}</td><td>${esc(m.jurusan)}</td><td>${esc(m.email)}</td>
+        <td class="aksi">
+          <button class="small" onclick="ubah(${m.id})">Ubah</button>
+          <button class="small danger" onclick="hapus(${m.id}, '${esc(m.nama).replace(/'/g, '')}')">Hapus</button>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="kosong">Belum ada data. Isi formulir di atas untuk menambahkan mahasiswa.</td></tr>';
+}
+
+function reset() {
+  form.reset();
+  $('id').value = '';
+  $('judul-form').textContent = 'Tambah mahasiswa';
+  $('btn-batal').hidden = true;
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('id').value;
+  const body = { nim: $('nim').value, nama: $('nama').value, jurusan: $('jurusan').value, email: $('email').value };
+  const res = await fetch(id ? `${API}/${id}` : API, {
+    method: id ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) return toast(data.pesan, true);
+  toast(id ? 'Data berhasil diubah.' : 'Data berhasil ditambahkan.');
+  reset();
+  muat();
+});
+
+async function ubah(id) {
+  const m = await (await fetch(`${API}/${id}`)).json();
+  $('id').value = m.id; $('nim').value = m.nim; $('nama').value = m.nama;
+  $('jurusan').value = m.jurusan; $('email').value = m.email || '';
+  $('judul-form').textContent = 'Ubah data mahasiswa';
+  $('btn-batal').hidden = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function hapus(id, nama) {
+  if (!confirm(`Hapus data ${nama}?`)) return;
+  const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  toast(data.pesan, !res.ok);
+  muat();
+}
+
+$('btn-batal').addEventListener('click', reset);
+$('cari').addEventListener('input', muat);
+muat();
+</script>
+</body>
+</html>

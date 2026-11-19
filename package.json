@@ -1,0 +1,14 @@
+{
+  "name": "crud-mahasiswa",
+  "version": "1.0.0",
+  "description": "Aplikasi CRUD satu tabel (mahasiswa) dengan Express.js dan MySQL",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.1",
+    "mysql2": "^3.11.3"
+  }
+}
